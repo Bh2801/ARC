@@ -94,21 +94,28 @@ class EffectivenessTracker:
         return effectiveness, confidence
 
     def to_dict(self) -> Dict[str, Any]:
+        # Use "|" as separator so action/mode names containing "_" round-trip
+        # correctly through JSON serialization and from_dict() restoration.
         return {
-            # Use "|" as separator so names containing "_" (e.g. REDUCE_LR,
-            # VANISHING_GRADIENTS) round-trip correctly through from_dict().
-            "outcomes": {f"{k[0]}|{k[1]}": v for k, v in self._outcomes.items()},
+            "outcomes": {"|".join(k): v for k, v in self._outcomes.items()},
             "priors": self._priors,
         }
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> 'EffectivenessTracker':
         tracker = cls()
+        restored = {}
+        for k, v in d.get("outcomes", {}).items():
+            parts = k.split("|")
+            if len(parts) == 2:
+                # Correctly formed key — restore as tuple
+                restored[tuple(parts)] = v
+            else:
+                # Malformed or legacy key — skip silently to avoid broken lookups
+                pass
         tracker._outcomes = defaultdict(
             lambda: {"successes": 0, "total": 0},
-            # Split on "|" so action/failure-mode names that contain "_"
-            # (e.g. "REDUCE_LR|VANISHING_GRADIENTS") are parsed correctly.
-            {tuple(k.split("|")): v for k, v in d.get("outcomes", {}).items()}
+            restored,
         )
         tracker._priors = d.get("priors", {})
         return tracker
