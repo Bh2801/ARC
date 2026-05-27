@@ -410,7 +410,7 @@ class AdaptiveCheckpointer:
                     "See SECURITY.md for the checkpoint trust boundary.",
                     stacklevel=2,
                 )
-            checkpoint = torch.load(_ckpt_path, map_location=self.device, weights_only=False)
+                checkpoint = torch.load(_ckpt_path, map_location=self.device, weights_only=False)
 
         if checkpoint.get('is_incremental', False):
             checkpoint = self._resolve_incremental(checkpoint)
