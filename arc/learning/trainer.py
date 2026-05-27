@@ -356,7 +356,20 @@ class MetaModelTrainer:
         except TypeError:
             # PyTorch <1.13 doesn't support weights_only; fall back transparently
             checkpoint = torch.load(path, map_location=self.device)
-        except pickle.UnpicklingError:
+        except (pickle.UnpicklingError, RuntimeError) as exc:
+            # Discriminate: pickle.UnpicklingError is always a weights_only rejection;
+            # RuntimeError is only a weights_only rejection if the message says so.
+            # Other RuntimeErrors (file corruption, device mismatch, missing keys, I/O)
+            # must propagate rather than silently fall back to the unsafe path.
+            msg = str(exc).lower()
+            looks_like_weights_only_rejection = (
+                isinstance(exc, pickle.UnpicklingError)
+                or "weights only" in msg
+                or "unsupported global" in msg
+                or "weightsunpicklererror" in msg
+            )
+            if not looks_like_weights_only_rejection:
+                raise
             warnings.warn(
                 f"Loading {path} with weights_only=False. "
                 "Only do this for checkpoints you produced yourself. "
